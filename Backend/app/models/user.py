@@ -6,6 +6,7 @@ from typing import List
 from sqlalchemy import String,DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column,relationship
 
+# from Backend.app.models.Role import Role
 from app.database.database import Base
 from app.models.enums import UserRole
 
@@ -25,7 +26,7 @@ class User(Base):
     time_entries: Mapped[List["TimeEntry"]] = relationship("TimeEntry",back_populates="freelancer",cascade="all, delete-orphan")
     invoices: Mapped[List["Invoice"]] = relationship("Invoice", back_populates ="freelancer")
     uploaded_files: Mapped[List["File"]] =relationship("File", back_populates ="uploaded_by_user")
-
+    roles: Mapped[List["Role"]] = relationship("Role", secondary="user_roles", back_populates="users")
 def __repr__(self) -> str :
     return f"<User(id={self.id}, email={self.email}, role={self.role.value})>"
              
