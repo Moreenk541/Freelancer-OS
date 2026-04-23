@@ -17,6 +17,10 @@ class TimeEntry(Base):
     duration: Mapped[Optional[float]] = mapped_column(Float, nullable =True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(),nullable=False)
 
+    # Relationships
+    task: Mapped["Task"] = relationship("Task", back_populates="time_entries")
+    freelancer: Mapped["User"] = relationship("User", back_populates="time_entries")
+    
     def __repr__(self) ->str :
         return f"<TimeEntry(id={self.id}, duration={self.duration})>"
       

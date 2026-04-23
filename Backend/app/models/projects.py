@@ -19,6 +19,18 @@ class Project(Base):
     deadline: Mapped[datetime] = mapped_column(DateTime,nullable= True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(),nullable=False)
 
+    # Relationships
+    freelancer: Mapped["User"] = relationship("User", back_populates="projects")
+    client: Mapped["Client"] = relationship("Client", back_populates="projects")
+    tasks: Mapped[List["Task"]] = relationship(
+        "Task", back_populates="project", cascade="all, delete-orphan"
+    )
+    invoices: Mapped[List["Invoice"]] = relationship(
+        "Invoice", back_populates="project", cascade="all, delete-orphan"
+    )
+    files: Mapped[List["File"]] = relationship(
+        "File", back_populates="project", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Project(id={self.id}, title={self.title}, status={self.status.value})>"

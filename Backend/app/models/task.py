@@ -18,6 +18,11 @@ class Task(Base):
     due_date: Mapped[Optional[datetime]] = mapped_column(DateTime,nullable=True)
     created_at: Mapped[datetime] =mapped_column(DateTime,nullable =False, server_dafault = func.now())
 
+    # Relationships
+    project: Mapped["Project"] = relationship("Project", back_populates="tasks")
+    time_entries: Mapped[List["TimeEntry"]] = relationship(
+        "TimeEntry", back_populates="task", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Task(id={self.id},title={self.title}, status={self.status.value})>"

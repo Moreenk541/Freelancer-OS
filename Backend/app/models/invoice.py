@@ -21,5 +21,10 @@ class Invoice(Base):
     due_date:Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime]= mapped_column(DateTime, server_default=func.now(),nullable=False)
 
+    # Relationships
+    project: Mapped["Project"] = relationship("Project", back_populates="invoices")
+    client: Mapped["Client"] = relationship("Client", back_populates="invoices")
+    freelancer: Mapped["User"] = relationship("User", back_populates="invoices")
+
     def __repr__(self) -> str:
         return f"<Invoice(id={self.id}, total={self.total_amount}, status={self.status.value})>"

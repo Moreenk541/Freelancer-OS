@@ -17,6 +17,15 @@ class Client(Base):
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(),nullable=False)
 
+    #RELATIONSHIPS
 
+    freelancer: Mapped["User"] = relationship("User", back_populates="clients")
+    projects: Mapped[List["Project"]] = relationship(
+        "Project", back_populates="client", cascade="all, delete-orphan"
+    )
+    invoices: Mapped[List["Invoice"]] = relationship(
+        "Invoice", back_populates="client"
+    )
+    
     def __repr__(self) -> str:
         return f"<Client (id={self.id},name={self.name})>"

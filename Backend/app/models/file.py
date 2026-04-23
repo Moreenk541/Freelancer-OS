@@ -15,5 +15,13 @@ class File(Base):
     file_url: Mapped[str] = mapped_column(String(700),nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(),nullable=False)
 
+
+    # Relationships
+    project: Mapped["Project"] = relationship("Project", back_populates="files")
+    uploaded_by_user: Mapped["User"] = relationship(
+        "User", back_populates="uploaded_files"
+    )
+
+    
     def __repr__(self) -> str:
         return f"<File(id={self.id}, file_name={self.file_name})>"
