@@ -18,6 +18,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255),unique=True,nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255),nullable=False)
     role: Mapped[UserRole] = mapped_column(nullable = False , default = UserRole.FREELANCER)
+    active_role: Mapped[str] = mapped_column(String(50), nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default = func.now(), nullable =False)
 
     #RELATIONSHIPS

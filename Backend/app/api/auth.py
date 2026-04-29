@@ -66,5 +66,13 @@ def get_current_user( token: str = Depends(outh2_scheme), db:Session = Depends(g
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account deactivated")
 
     return user
+
+def require_admin(user):
+    if not any(role.name == "admin" for role in user.roles):
+        raise HTTPException(status_code=403, detail="Admin access required")
