@@ -14,6 +14,7 @@ class Client(Base):
     name: Mapped[str] =mapped_column(String(255),nullable=False)
     email: Mapped[str] =mapped_column(String(255),nullable=False)
     company: Mapped[Optional[str]]= mapped_column(String(255), nullable=True)
+    phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(),nullable=False)
 

@@ -180,3 +180,14 @@ def change_password(
     db.commit()
     db.refresh(current_user)    
     return {"message": "Password updated successfully"}
+
+
+def is_admin(user):
+    return any(role.name == "admin" for role in user.roles)
+
+
+
+# def require_role(user, role_name: str):
+#     if role_name not in [role.name for role in user.roles]:
+#         raise HTTPException(status_code=403, detail="Permission denied")
+
