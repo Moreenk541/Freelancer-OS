@@ -1,193 +1,147 @@
-from fastapi import APIRouter, Depends, HTTPException
+"""
+User routes — /api/v1/users
+ 
+Own profile (any authenticated user):
+  GET    /me                        Fetch own profile
+  PATCH  /me                        Update own profile fields
+  POST   /me/password               Change own password
+ 
+Admin only:
+  GET    /                          List all users (filterable by role)
+  GET    /{user_id}                 Get any user by ID
+  POST   /{user_id}/roles           Assign a role to a user
+  DELETE /{user_id}/roles/{role}    Remove a role from a user
+  PATCH  /{user_id}/deactivate      Soft-delete a user
+  PATCH  /{user_id}/reactivate      Restore a deactivated user
+"""
+
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, status,Query
 from sqlalchemy.orm import Session
 
+from app.core.dependencies import get_current_user,admin_required
 from app.database.database import get_db
 from app.models.user import User
-from app.api.auth import get_current_user
-from app.models.role import Role
+from app.schemas.user import (
+    AssignRoleSchema,
+    PasswordChange,
+    
+    UserOut,
+    UserProfileOut,
+    UserUpdate,
+)
+from app.services import user_service
 
-router = APIRouter(prefix="/users", tags= "Users")
+router = APIRouter(prefix="/users", tags=["Users"])
 
-@router.get("/me")
-def get_current_user_profile(
+
+@router.get(
+    "/me",
+    response_model=UserProfileOut,
+    status_code=status.HTTP_200_OK,
+    summary="Get own profile",
+)
+
+def get_me(current_user: User = Depends(get_current_user)):
+    return current_user 
+
+@router.patch(
+    "/me",
+    response_model=UserProfileOut,
+    status_code=status.HTTP_200_OK,
+    summary="Update own profile",
+    responses={
+        401:{"description":"Not authenticated"},
+    }
+)
+def update_me(
+    data:UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)   
+):
+    return user_service.update_profile(db, current_user.id, data)
+
+@router.post(
+    "/me/password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Change own password",
+    responses={
+        400:{"description":"Validation error (e.g. wrong current password)"},
+        401:{"description":"Not authenticated"},
+    }
+)
+def change_password(
+    data:PasswordChange,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    return {
-        "id": current_user.id,
-        "name": current_user.name,
-        "email": current_user.email,
-        "roles": [role.name for role in current_user.roles]
+    user_service.change_password(db, current_user.id, data)
+
+
+
+# Admin-only endpoints would go here, protected by admin_required dependency
+
+@router.get(
+    "/",
+    response_model=List[UserOut],
+    status_code=status.HTTP_200_OK,
+    summary="List all users (admin only)",
+    dependencies=[Depends(admin_required)],
+    responses={
+        401:{"description":"Not authenticated"},
+        403:{"description":"Not an admin"},
     }
+)
 
-@router.post("/add-role")
-def add_role(
-    role_name : str,
-    current_user : User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    role = db.query(Role).filter(role.name == role_name).first()
-
-    if not role:
-        raise HTTPException(status_code=404, detail="Role not found")
-
-
-    if role in current_user.roles:  
-        raise HTTPException(status_code=400, detail="Role already assigned")  
-    
-    current_user.roles.append(role)
-
-    db.commit()
-    db.refresh(current_user)
-
-    return {"message": f"Role '{role_name}' added successfully"}
-
-
-@router.post("/switch-role")
-def switch_role(
-    role_name: str,
-    current_user:User  = Depends(get_current_user),
-    db: Session = Depends(get_db)
+def list_users(
+    role:Optional[str] =Query(
+        None,
+        description="Filter by role name : admin | freelancer |client",
+    ),
+    skip:  int = Query(0,  ge=0,   description="Pagination offset"),
+    limit: int = Query(50, le=200, description="Max records to return"),
+    _: User = Depends(admin_required),
+    db: Session = Depends(get_db),
 
 ):
-    if role_name not in [role.name for role in current_user.roles]:
-        raise HTTPException(status_code=400, detail="Role not assigned to the user")
-    
-    current_user.active_role = role_name
+    return user_service.list_users(db, role_filter=role, skip=skip, limit=limit)
 
-    db.commit()
-    db.refresh(current_user)
+@router.get(
+    "/{user_id}",
+    response_model =UserProfileOut,
+    status_code=status.HTTP_200_OK,
+    summary="Get any user by ID (admin only)",
+    responses={
+        403: {"description": "Admin role required"},
+        404: {"description": "User not found"},
+    }
+)
 
-    return {"message": f"Switched to {role_name}"}
-
-
-@router.get("/admin")
-def require_admin(user):
-    if not any(role.name == "admin" for role in user.roles):
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-@router.get("/all")
-def get_all_users(
-    current_user:User = Depends(get_current_user),
-    db:Session = Depends(get_db)
+def get_user(
+    user_id :int,
+    _: User = Depends(admin_required),
+    db: Session = Depends(get_db),
 ):
-    require_admin(current_user)
-    return db.query(User).all()
-  
-@router.posr("/{user_id}/assign-role")
+    return user_service.get_user(db, user_id)
+
+
+@router.post(
+    "/{user_id}/roles",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Assign a role to a user (admin only)",
+    responses={
+        403: {"description": "Admin role required"},
+        404: {"description": "User or role not found"},
+    }
+)
+
 def assign_role(
-    user_id:int,
-    role_name:str,
-    current_user:User = Depends(get_current_user),
-    db:Session = Depends(get_db)
+    user_id: int,
+    data: AssignRoleSchema,
+    _: User = Depends(admin_required),
+    db: Session = Depends(get_db),
 ):
-    require_admin(current_user)
+    user_service.assign_role(db, user_id, data.role_name)
 
-    user = db.query(User).get(user_id)
-    role=db.query(Role).filter(Role.name == role_name).first()
-
-    if not user or role:
-        raise HTTPException(status_code=404, detail="User or Role not found")
     
-
-    if role in user.roles:
-        raise HTTPException(status_code=400, detail="Role already assigned to user")
-    
-    user.roles.append(role)
-    db.commit()
-    db.refresh(user)
-
-    return {"message": "Role assigned successfully"}
-    
-
-@router.post("/{user_id}/remove-role")    
-def remove_role(
-    user_id:int,
-    role_name:str,
-    current_user:User = Depends(get_current_user),
-    db:Session = Depends(get_db)
-):
-    require_admin(current_user)
-
-    user = db.query(User).get(user_id)
-    role=db.query(Role).filter(Role.name == role_name).first()
-
-    if not user or role:
-        raise HTTPException(status_code=404, detail="User or Role not found")
-    
-
-    if role not in user.roles:
-        raise HTTPException(status_code=400, detail="Role not assigned to user")
-    
-    user.roles.remove(role)
-    db.commit()
-    db.refresh(user)
-
-    return {"message": "Role removed successfully"}
-
-@router.patch("/{user_id}/deactivate")
-def deactivate_user(
-    user_id:int,
-    current_user:User = Depends(get_current_user),
-    db:Session = Depends(get_db)
-):
-    require_admin(current_user)
-
-    user = db.query(User).get(user_id)
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    user.is_active = False
-    db.commit()
-    db.refresh(user)
-
-    return {"message": "User deactivated successfully"}
-
-
-@router.patch("/{user_id}/activate")
-def activate_user(
-    user_id:int,
-    current_user:User = Depends(get_current_user),
-    db:Session = Depends(get_db)
-):
-    require_admin(current_user)
-
-    user = db.query(User).get(user_id)
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    user.is_active = True
-    db.commit()
-    db.refresh(user)
-
-    return {"message": "User activated successfully"}
-
-@router.post("/change-password")
-def change_password(
-    old_password:str,
-    new_password:str,
-    current_user:User = Depends(get_current_user),
-    db:Session = Depends(get_db)
-):
-    from app.core.security import verify_password, hash_password
-
-    if not verify_password(old_password, current_user.password):
-        raise HTTPException(status_code=400, detail="Old password is incorrect")
-    
-    current_user.hashed_password = hash_password(new_password)
-    db.commit()
-    db.refresh(current_user)    
-    return {"message": "Password updated successfully"}
-
-
-def is_admin(user):
-    return any(role.name == "admin" for role in user.roles)
-
-
-
-# def require_role(user, role_name: str):
-#     if role_name not in [role.name for role in user.roles]:
-#         raise HTTPException(status_code=403, detail="Permission denied")
-

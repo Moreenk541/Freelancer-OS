@@ -55,25 +55,25 @@ class UserUpdate(BaseModel):
     website: Optional[str] = Field(None, max_length=255)
 
  
-# class PasswordChange(BaseModel):
-#     """POST /users/me/password — requires current password to prevent CSRF abuse."""
-#     current_password: str
-#     new_password:     str = Field(..., min_length=8, max_length=128)
+class PasswordChange(BaseModel):
+    """POST /users/me/password — requires current password to prevent CSRF abuse."""
+    current_password: str
+    new_password:     str = Field(..., min_length=8, max_length=128)
  
-#     @field_validator("new_password")
-#     @classmethod
-#     def new_password_strength(cls, v: str) -> str:
-#         if not any(c.isdigit() for c in v):
-#             raise ValueError("New password must contain at least one digit.")
-#         if not any(c.isupper() for c in v):
-#             raise ValueError("New password must contain at least one uppercase letter.")
-#         return v
+    @field_validator("new_password")
+    @classmethod
+    def new_password_strength(cls, v: str) -> str:
+        if not any(c.isdigit() for c in v):
+            raise ValueError("New password must contain at least one digit.")
+        if not any(c.isupper() for c in v):
+            raise ValueError("New password must contain at least one uppercase letter.")
+        return v
  
  
-# class AssignRoleSchema(BaseModel):
-#     """
-#     POST /users/{id}/roles — admin assigns a role by name.
-#     Valid values: 'admin', 'freelancer', 'client'.
-#     """
-#     role_name: str = Field(..., min_length=1, max_length=50)
+class AssignRoleSchema(BaseModel):
+    """
+    POST /users/{id}/roles — admin assigns a role by name.
+    Valid values: 'admin', 'freelancer', 'client'.
+    """
+    role_name: str = Field(..., min_length=1, max_length=50)
  
