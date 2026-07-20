@@ -144,4 +144,62 @@ def assign_role(
 ):
     user_service.assign_role(db, user_id, data.role_name)
 
-    
+
+
+@router.delete(
+    "/{user.id}/roles/{role_name}",
+    response_model =UserProfileOut,
+    status_code=status.HTTP_200_OK,
+    summary="Remove a role from a user (admin only)",
+    responses={
+        400: {"description": "Cannot remove the user's only role"},
+        403: {"description": "Admin role required"},
+        404: {"description": "User does not have this role"},
+    },
+)
+
+def remove_role(
+   user_id: int,
+    role_name: str,
+    _: User = Depends(admin_required),
+    db: Session = Depends(get_db), 
+):
+    return user_service.remove_role(db, user_id, role_name)
+
+@router.patch(
+     "/{user_id}/deactivate",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Deactivate a user account [admin]",
+    responses={
+        400: {"description": "Cannot deactivate your own account"},
+        403: {"description": "Admin role required"},
+        404: {"description": "User not found"},
+    },
+)
+def deactivate_user(
+    user_id: int,
+    current_admin: User = Depends(admin_required),
+    db: Session = Depends(get_db),
+):
+      user_service.deactivate_user(db, user_id, requesting_admin_id=current_admin.id)
+
+
+
+@router.patch(
+    "/{user_id}/reactivate",
+    response_model=UserProfileOut,
+    status_code=status.HTTP_200_OK,
+    summary="Reactivate a deactivated user [admin]",
+    responses={
+        403: {"description": "Admin role required"},
+        404: {"description": "User not found"},
+    },
+)
+def reactivate_user(
+    user_id: int,
+    _: User = Depends(admin_required),
+    db: Session = Depends(get_db),
+):
+    """Restore a previously deactivated account. The user can log in again immediately."""
+    return user_service.reactivate_user(db, user_id)
+ 
